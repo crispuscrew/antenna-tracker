@@ -67,3 +67,33 @@ target_compile_definitions(antenna-tracker PRIVATE
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(antenna-tracker PRIVATE -Wall -Wextra -O2)
 endif()
+
+# ── Unit-тесты ────────────────────────────────────────────────────────────────
+enable_testing()
+
+# test-protocol: только stdlib + vkaprotocol (без Asio и libpredict)
+add_executable(test-protocol
+    tests/test_protocol.cpp
+    src/protocol/vkaprotocol.cpp
+)
+target_include_directories(test-protocol PRIVATE src)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(test-protocol PRIVATE -Wall -Wextra -O2)
+endif()
+add_test(NAME protocol COMMAND test-protocol)
+
+# test-trajectory: trajectory_planner + tle_tracker (нужен libpredict для линковки)
+add_executable(test-trajectory
+    tests/test_trajectory.cpp
+    src/tracking/trajectory_planner.cpp
+    src/tracking/tle_tracker.cpp
+)
+target_include_directories(test-trajectory PRIVATE
+    src
+    ${libpredict_BINARY_DIR}/include
+)
+target_link_libraries(test-trajectory PRIVATE predict)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(test-trajectory PRIVATE -Wall -Wextra -O2)
+endif()
+add_test(NAME trajectory COMMAND test-trajectory)

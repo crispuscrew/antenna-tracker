@@ -23,7 +23,7 @@ private:
     void connect();
     void do_read();
     void on_read(const asio::error_code& ec, std::size_t n);
-    void send(const std::string& pkt);
+    void send(std::string pkt); // принимает по значению — владение передаётся в shared_ptr
 
     // ── Members ───────────────────────────────────────────────────────────────
     asio::io_context&        io_;
@@ -44,4 +44,5 @@ private:
     std::string                  rx_accum_;
 
     bool                         debug_;
+    bool                         pass_valid_ = false; // true когда pass_ актуален
 };

@@ -96,12 +96,14 @@ void AntennaController::on_read(const asio::error_code& ec, std::size_t n)
     do_read();
 }
 
-void AntennaController::send(const std::string& pkt)
+void AntennaController::send(std::string pkt)
 {
     if (!socket_.is_open()) return;
-    // Fire-and-forget async write (pkt copied into lambda).
-    asio::async_write(socket_, asio::buffer(pkt),
-        [pkt, this](const asio::error_code& ec, std::size_t) {
+    // Буфер должен жить до завершения async_write.
+    // shared_ptr держит строку живой — лямбда захватывает его по значению.
+    auto sp = std::make_shared<std::string>(std::move(pkt));
+    asio::async_write(socket_, asio::buffer(*sp),
+        [sp](const asio::error_code& ec, std::size_t) {
             if (ec) std::cerr << "[write] " << ec.message() << "\n";
         });
 }
@@ -130,19 +132,21 @@ void AntennaController::on_tick(const asio::error_code& ec)
 
     switch (state_) {
     case State::WAITING: {
-        // Plan the next pass.
-        pass_ = planner_.plan_next(now);
-        std::time_t prepoint_t = pass_.aos - 60;
+        // Планируем следующий проход один раз, не на каждый тик.
+        if (!pass_valid_) {
+            pass_ = planner_.plan_next(now);
+            pass_valid_ = true;
 
-        if (debug_) {
-            char aos_str[32];
-            struct tm* tm_info = gmtime(&pass_.aos);
-            strftime(aos_str, sizeof(aos_str), "%Y-%m-%dT%H:%M:%SZ", tm_info);
-            std::cout << "[pass] AOS=" << aos_str
-                      << "  points=" << pass_.trajectory.size() << "\n";
+            if (debug_) {
+                char aos_str[32];
+                struct tm* tm_info = gmtime(&pass_.aos);
+                strftime(aos_str, sizeof(aos_str), "%Y-%m-%dT%H:%M:%SZ", tm_info);
+                std::cout << "[pass] AOS=" << aos_str
+                          << "  points=" << pass_.trajectory.size() << "\n";
+            }
         }
 
-        if (now >= prepoint_t) {
+        if (now >= pass_.aos - 60) {
             transition(State::ACQUIRING);
         }
         break;
@@ -184,6 +188,7 @@ void AntennaController::on_tick(const asio::error_code& ec)
         // Send a stop command and return to WAITING.
         std::string pkt = vka::pack(seq_++, DriveCmd::STOP, 0.f, 0.f);
         send(pkt);
+        pass_valid_ = false;  // заставить WAITING пересчитать следующий проход
         transition(State::WAITING);
         break;
     }

@@ -28,7 +28,11 @@ public:
     std::time_t next_aos(std::time_t from) const;
 
     // Return the LOS following the next AOS after 'from'.
+    // Internally searches for AOS first — used only when AOS is not yet known.
     std::time_t next_los(std::time_t from) const;
+
+    // Return the LOS of the pass whose AOS is 'aos_t' (avoids duplicate AOS search).
+    std::time_t los_after(std::time_t aos_t) const;
 
 private:
     predict_orbital_elements_t* sat_ = nullptr;

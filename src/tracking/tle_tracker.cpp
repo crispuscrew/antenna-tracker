@@ -91,8 +91,16 @@ std::time_t TleTracker::next_aos(std::time_t from) const
 std::time_t TleTracker::next_los(std::time_t from) const
 {
     if (!sat_ || !obs_) return 0;
-    // Start searching from AOS of the next pass.
+    // Find AOS first, then search for LOS from there.
     predict_observation aos_obs = predict_next_aos(obs_, sat_, predict_to_julian(from));
     predict_observation los_obs = predict_next_los(obs_, sat_, aos_obs.time);
+    return jd_to_unix(los_obs.time);
+}
+
+std::time_t TleTracker::los_after(std::time_t aos_t) const
+{
+    if (!sat_ || !obs_) return 0;
+    // AOS already known — skip the AOS search and go straight to LOS.
+    predict_observation los_obs = predict_next_los(obs_, sat_, predict_to_julian(aos_t));
     return jd_to_unix(los_obs.time);
 }
